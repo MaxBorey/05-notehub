@@ -1,0 +1,1 @@
+import './NoteModal.module.css'
