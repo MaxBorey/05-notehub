@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import css from './App.module.css';
 import NoteList from '../NoteList/NoteList';
 import Pagination from '../Pagination/Pagination';
@@ -6,10 +6,11 @@ import Modal from '../NoteModal/NoteModal';
 import NoteForm from '../NoteForm/NoteForm';
 import SearchBox from '../SearchBox/SearchBox';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { useDebounce } from 'use-debounce';
+import { fetchNotes } from '../../services/noteService';
 import { Note } from '../../types/note';
 
-type NotesApiResponse = {
+interface NotesApiResponse  {
   notes: Note[];
   page: number;
   perPage: number;
@@ -17,38 +18,20 @@ type NotesApiResponse = {
   totalPages: number;
 };
 
-const PER_PAGE = 12;
-
-const fetchNotes = async (page: number, search: string): Promise<NotesApiResponse> => {
-  const token = import.meta.env.VITE_SWAGER_TOKEN;
-
-  try {
-    const res = await axios.get('https://notehub-public.goit.study/api/notes', {
-      params: {
-        page,
-        perPage: PER_PAGE,
-        ...(search ? { search } : {}),
-      },
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    return res.data;
-  } catch (error) {
-    console.error('fetchNotes error:', error);
-    throw error;
-  }
-};
-
 export default function App() {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 500);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  useEffect(() => {
+    setPage(1); 
+  }, [debouncedSearchTerm]);
+
   const { data, isLoading, isError } = useQuery<NotesApiResponse, Error>({
-    queryKey: ['notes', page, searchTerm],
-    queryFn: () => fetchNotes(page, searchTerm),
-    staleTime: 1000 * 60,
+    queryKey: ['notes', page, debouncedSearchTerm],
+    queryFn: () => fetchNotes(page, debouncedSearchTerm),
+    placeholderData: (previousData) => previousData,
   });
 
   const notes: Note[] = data?.notes ?? [];
@@ -57,15 +40,17 @@ export default function App() {
   return (
     <div className={css.app}>
       <header className={css.toolbar}>
-        <SearchBox onSearch={setSearchTerm} />
+        <SearchBox value={searchTerm} onChange={setSearchTerm} />
 
-        <div className={css.paginationInline}>
-          <Pagination
-            pageCount={totalPages}
-            forcePage={page - 1}
-            onPageChange={({ selected }) => setPage(selected + 1)}
-          />
-        </div>
+        {totalPages > 1 && (
+          <div className={css.paginationInline}>
+            <Pagination
+              pageCount={totalPages}
+              forcePage={page - 1}
+              onPageChange={({ selected }) => setPage(selected + 1)}
+            />
+          </div>
+        )}
 
         <button className={css.button} onClick={() => setIsModalOpen(true)}>
           Create note +
@@ -78,7 +63,10 @@ export default function App() {
 
       {isModalOpen && (
         <Modal onClose={() => setIsModalOpen(false)}>
-          <NoteForm onSuccess={() => setIsModalOpen(false)} />
+          <NoteForm
+            onSuccess={() => setIsModalOpen(false)}
+            onCancel={() => setIsModalOpen(false)}
+          />
         </Modal>
       )}
     </div>

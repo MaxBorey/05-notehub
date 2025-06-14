@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+// src/services/noteService.ts
 import axios from "axios";
-import { Note } from "../types/note"; 
+import { Note } from "../types/note";
 
 interface NotesApiResponse {
   notes: Note[];
@@ -10,47 +10,29 @@ interface NotesApiResponse {
   totalPages: number;
 }
 
-export function useFetchNotes() {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isError, setIsError] = useState(false);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+const API_URL = 'https://notehub-public.goit.study/api/notes';
 
-  useEffect(() => {
-    const token = import.meta.env.VITE_SWAGER_TOKEN;
-    setIsLoading(true);
-    setIsError(false);
-    axios.get<NotesApiResponse>(`https://notehub-public.goit.study/api/notes?page=${page}&perPage=12`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      .then((response) => {
-        setNotes(response.data.notes);
-        setTotalPages(response.data.totalPages);
-      })
-      .catch(() => setIsError(true))
-      .finally(() => setIsLoading(false));
-  }, [page]);
+const token = import.meta.env.VITE_SWAGER_TOKEN;
+const headers = { Authorization: `Bearer ${token}` };
 
-  const addNote = useCallback(async (newNote: Omit<Note, 'id'>) => {
-    const token = import.meta.env.VITE_SWAGER_TOKEN;
-    try {
-      const response = await axios.post(
-        "https://notehub-public.goit.study/api/notes",
-        newNote,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      setNotes(prev => [response.data.note, ...prev]);
-    } catch (error) {
-      console.log(error);
-    }
-  }, []);
+export async function fetchNotes(page: number, search: string = ''): Promise<NotesApiResponse> {
+  const response = await axios.get(API_URL, {
+    params: {
+      page,
+      perPage: 12,
+      ...(search ? { search } : {}),
+    },
+    headers,
+  });
 
-  return { notes, isLoading, isError, addNote, page, setPage, totalPages };
+  return response.data;
+}
+
+export async function createNote(newNote: Omit<Note, 'id'>): Promise<Note> {
+  const response = await axios.post(API_URL, newNote, { headers });
+  return response.data.note;
+}
+
+export async function deleteNote(id: number): Promise<void> {
+  await axios.delete(`${API_URL}/${id}`, { headers });
 }

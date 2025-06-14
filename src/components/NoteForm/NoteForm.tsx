@@ -1,98 +1,58 @@
-import { useState, useEffect } from 'react';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 import css from './NoteForm.module.css';
 import { Note } from '../../types/note';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { createNote } from '../../services/noteService';
 
-type NoteFormProps = {
-  note?: Note; 
+interface NoteFormProps {
   onSuccess?: () => void;
-};
+  onCancel?: () => void;
+}
 
-export default function NoteForm({ note, onSuccess }: NoteFormProps) {
-  const [form, setForm] = useState<Omit<Note, 'id'>>({
-    title: '',
-    content: '',
-    tag: 'Todo',
-  });
-
+export default function NoteForm({ onSuccess, onCancel }: NoteFormProps) {
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (note) {
-      setForm({
-        title: note.title,
-        content: note.content,
-        tag: note.tag,
-      });
-    }
-  }, [note]);
-
-  const createMutation = useMutation({
-    mutationFn: async (newNote: Omit<Note, 'id'>) => {
-      const token = import.meta.env.VITE_SWAGER_TOKEN;
-      const response = await axios.post('https://notehub-public.goit.study/api/notes', newNote, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return response.data.note as Note;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
-      setForm({ title: '', content: '', tag: 'Todo' });
-      onSuccess?.();
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const token = import.meta.env.VITE_SWAGER_TOKEN;
-      await axios.delete(`https://notehub-public.goit.study/api/notes/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    },
+  const mutation = useMutation({
+    mutationFn: createNote,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes'] });
       onSuccess?.();
     },
   });
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    createMutation.mutate(form);
-  };
-
-  const handleCancel = () => {
-    setForm({ title: '', content: '', tag: 'Todo' });
-    onSuccess?.();
-  };
-
-  const handleDelete = () => {
-    if (note && window.confirm('Ви точно хочете видалити цю нотатку?')) {
-      console.log('Видаляємо нотатку з id:', note.id); 
-      deleteMutation.mutate(note.id);
-    }
-  };
+  const formik = useFormik<Omit<Note, 'id'>>({
+    initialValues: {
+      title: '',
+      content: '',
+      tag: 'Todo',
+    },
+    validationSchema: Yup.object({
+      title: Yup.string().required('Title is required'),
+      content: Yup.string().required('Content is required'),
+      tag: Yup.string().required(),
+    }),
+    onSubmit: values => {
+      mutation.mutate(values);
+    },
+  });
 
   return (
-    <form className={css.form} onSubmit={handleSubmit}>
+    <form className={css.form} onSubmit={formik.handleSubmit}>
       <div className={css.formGroup}>
         <label htmlFor="title">Title</label>
         <input
           id="title"
-          type="text"
           name="title"
+          type="text"
           className={css.input}
-          value={form.title}
-          onChange={handleChange}
-          required
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          value={formik.values.title}
         />
-        <span className={css.error} />
+        {formik.touched.title && formik.errors.title && (
+          <div className={css.error}>{formik.errors.title}</div>
+        )}
       </div>
 
       <div className={css.formGroup}>
@@ -102,10 +62,13 @@ export default function NoteForm({ note, onSuccess }: NoteFormProps) {
           name="content"
           rows={8}
           className={css.textarea}
-          value={form.content}
-          onChange={handleChange}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          value={formik.values.content}
         />
-        <span className={css.error} />
+        {formik.touched.content && formik.errors.content && (
+          <div className={css.error}>{formik.errors.content}</div>
+        )}
       </div>
 
       <div className={css.formGroup}>
@@ -114,8 +77,9 @@ export default function NoteForm({ note, onSuccess }: NoteFormProps) {
           id="tag"
           name="tag"
           className={css.select}
-          value={form.tag}
-          onChange={handleChange}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          value={formik.values.tag}
         >
           <option value="Todo">Todo</option>
           <option value="Work">Work</option>
@@ -123,36 +87,26 @@ export default function NoteForm({ note, onSuccess }: NoteFormProps) {
           <option value="Meeting">Meeting</option>
           <option value="Shopping">Shopping</option>
         </select>
-        <span className={css.error} />
+        {formik.touched.tag && formik.errors.tag && (
+          <div className={css.error}>{formik.errors.tag}</div>
+        )}
       </div>
 
       <div className={css.actions}>
         <button
           type="button"
           className={css.cancelButton}
-          onClick={handleCancel}
-          disabled={createMutation.isPending || deleteMutation.isPending}
+          onClick={onCancel}
+          disabled={mutation.isPending}
         >
           Cancel
         </button>
-
-        {note && (
-          <button
-            type="button"
-            className={css.deleteButton}
-            onClick={handleDelete}
-            disabled={deleteMutation.isPending}
-          >
-            {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-          </button>
-        )}
-
         <button
           type="submit"
           className={css.submitButton}
-          disabled={createMutation.isPending}
+          disabled={mutation.isPending}
         >
-          {createMutation.isPending ? 'Saving...' : 'Create note'}
+          {mutation.isPending ? 'Saving...' : 'Create note'}
         </button>
       </div>
     </form>

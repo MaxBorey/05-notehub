@@ -2,12 +2,12 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import css from './NoteModal.module.css';
 
-interface ModalProps {
+interface NoteModalProps {
   onClose: () => void;
   children: React.ReactNode;
 }
 
-export default function Modal({ onClose, children }: ModalProps) {
+export default function NoteModal({ onClose, children }: NoteModalProps) {
   const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) {
       onClose();

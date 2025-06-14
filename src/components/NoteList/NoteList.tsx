@@ -1,7 +1,7 @@
 import css from './NoteList.module.css';
 import { Note } from '../../types/note';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { deleteNote } from '../../services/noteService';
 
 interface NoteListProps {
   items: Note[];
@@ -11,12 +11,7 @@ export default function NoteList({ items }: NoteListProps) {
   const queryClient = useQueryClient();
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const token = import.meta.env.VITE_SWAGER_TOKEN;
-      await axios.delete(`https://notehub-public.goit.study/api/notes/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    },
+    mutationFn: deleteNote,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes'] });
     },
