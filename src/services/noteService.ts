@@ -11,11 +11,10 @@ interface NotesApiResponse {
 }
 
 const API_URL = 'https://notehub-public.goit.study/api/notes';
-
 const token = import.meta.env.VITE_SWAGER_TOKEN;
 const headers = { Authorization: `Bearer ${token}` };
 
-export async function fetchNotes(page: number, search: string = ''): Promise<NotesApiResponse> {
+export async function fetchNotes(search: string = '', page: number): Promise<NotesApiResponse> {
   const response = await axios.get(API_URL, {
     params: {
       page,
@@ -33,6 +32,7 @@ export async function createNote(newNote: Omit<Note, 'id'>): Promise<Note> {
   return response.data.note;
 }
 
-export async function deleteNote(id: number): Promise<void> {
-  await axios.delete(`${API_URL}/${id}`, { headers });
+export async function deleteNote(id: number): Promise<Note> {
+  const response = await axios.delete(`${API_URL}/${id}`, { headers });
+  return response.data.note;
 }
